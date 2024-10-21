@@ -28,7 +28,7 @@ If your plugin does not need CSS, delete this file.
 
 .ordenar-separacion {
     display: grid;
-    grid-template-columns: auto auto;
+    grid-template-columns: minmax(auto, calc(50% - 5px)) minmax(auto, calc(50% - 5px));
     gap: 10px;  
     width: 100%;
     min-height: 100%;
@@ -60,4 +60,10 @@ If your plugin does not need CSS, delete this file.
     opacity: 0.8;
     background-color: var(--interactive-hover);
     border: 2px solid var(--interactive-accent);
+}
+
+.ordenar-archivo-contenido {
+    width: 100%;
+    overflow-y: auto;
+    white-space: initial;
 }
