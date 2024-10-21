@@ -26,6 +26,10 @@ If your plugin does not need CSS, delete this file.
     text-align: center;
 }    
 
+.ordenar-ventana .modal-content {
+    overflow-y: hidden;
+}
+
 .ordenar-separacion {
     display: grid;
     grid-template-columns: minmax(auto, calc(50% - 5px)) minmax(auto, calc(50% - 5px));
@@ -44,6 +48,7 @@ If your plugin does not need CSS, delete this file.
     background-color: var(--background-modifier-form-field);
     border: 2px solid var(--interactive-normal);
     border-radius: 0.5em;
+    overflow-y: scroll;
 
     align-items: inherit;
     justify-content: inherit;
@@ -64,6 +69,5 @@ If your plugin does not need CSS, delete this file.
 
 .ordenar-archivo-contenido {
     width: 100%;
-    overflow-y: auto;
     white-space: initial;
 }
