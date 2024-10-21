@@ -111,6 +111,7 @@ class ReordenarModal extends Modal {
 			this.app.vault.read(tArchivoUno),
 			this.app.vault.read(tArchivoDos)
 		])).map(contenido => this.sacarFrontmatter(contenido));
+		await this.waitForDataview();
 
 		let separacion = contentEl.createDiv();
 		separacion.addClass("ordenar-separacion");
@@ -153,6 +154,17 @@ class ReordenarModal extends Modal {
 			.render(this.app, `# ${archivoDos.name}\n---\n${contenidoDos}`, divDerecha.createDiv({ cls: "ordenar-archivo-contenido" }), "", this.component);
 
 		await Promise.all([ tareaIzquierda, tareaDerecha ]);
+	}
+	async waitForDataview() {
+		return new Promise((resolve) => {
+			if (this.app.plugins.plugins.dataview) {
+				resolve(this.app.plugins.plugins.dataview);
+			} else {
+				this.app.workspace.on("dataview:api-ready", () => {
+					resolve(this.app.plugins.plugins.dataview);
+				});
+			}
+		});
 	}
 
 	async onClose(): Promise<void> {
