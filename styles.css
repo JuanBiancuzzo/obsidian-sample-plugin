@@ -76,3 +76,8 @@ If your plugin does not need CSS, delete this file.
     width: 100%;
     white-space: initial;
 }
+
+.ordenar-archivo-contenido div:has(svg) {
+    display: flex;
+    justify-content: center;
+}
