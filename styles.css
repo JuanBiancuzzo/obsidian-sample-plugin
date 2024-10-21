@@ -6,3 +6,58 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+.ordenar-botones {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ordenar-boton {
+    margin-left: 1em;
+}
+
+.ordenar-ventana {
+    width: 80%;
+    height: 80%;
+
+}
+
+.ordenar-ventana .modal-title {
+    width: 100%;
+    text-align: center;
+}    
+
+.ordenar-separacion {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 10px;  
+    width: 100%;
+    min-height: 100%;
+    padding-top: 1em;
+}
+
+.ordenar-archivo {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    padding: 1em;
+    background-color: var(--background-modifier-form-field);
+    border: 2px solid var(--interactive-normal);
+    border-radius: 0.5em;
+
+    align-items: inherit;
+    justify-content: inherit;
+    font-weight: inherit;
+    text-align: inherit;
+}
+
+.ordenar-archivo:not(.clickable-icon) {
+    background-color: var(--background-modifier-form-field);
+    border: 2px solid var(--interactive-normal);
+}
+
+.ordenar-archivo:hover {
+    opacity: 0.8;
+    background-color: var(--interactive-hover);
+    border: 2px solid var(--interactive-accent);
+}
