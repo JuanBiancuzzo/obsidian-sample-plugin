@@ -133,7 +133,12 @@ class ReordenarModal extends Modal {
 			.buttonEl;
 
 		let tareaIzquierda = MarkdownRenderer
-			.render(this.app, `# ${archivoUno.name}\n---\n${contenidoUno}`, divIzquierda.createDiv({ cls: "ordenar-archivo-contenido" }), "", this.component);
+			.render(
+				this.app, `# ${archivoUno.name}\n---\n${contenidoUno}`, 
+				divIzquierda.createDiv({ cls: "ordenar-archivo-contenido" }), 
+				archivoUno.path, 
+				this.component
+			);
 
 		let divDerecha = new ButtonComponent(separacion)
 			.setClass("ordenar-archivo")
@@ -151,7 +156,12 @@ class ReordenarModal extends Modal {
 			.buttonEl;
 
 		let tareaDerecha = MarkdownRenderer
-			.render(this.app, `# ${archivoDos.name}\n---\n${contenidoDos}`, divDerecha.createDiv({ cls: "ordenar-archivo-contenido" }), "", this.component);
+			.render(
+				this.app, `# ${archivoDos.name}\n---\n${contenidoDos}`, 
+				divDerecha.createDiv({ cls: "ordenar-archivo-contenido" }), 
+				archivoDos.path,
+				this.component
+			);
 
 		await Promise.all([ tareaIzquierda, tareaDerecha ]);
 	}
