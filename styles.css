@@ -36,6 +36,7 @@ If your plugin does not need CSS, delete this file.
     gap: 10px;  
     width: 100%;
     min-height: 100%;
+    max-height: 100%;
     padding-top: 1em;
 }
 
@@ -43,12 +44,12 @@ If your plugin does not need CSS, delete this file.
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
     padding: 1em;
     background-color: var(--background-modifier-form-field);
     border: 2px solid var(--interactive-normal);
     border-radius: 0.5em;
-    overflow-y: scroll;
+    min-height: 100%;
+    overflow-y: auto;
 
     align-items: inherit;
     justify-content: inherit;
@@ -65,6 +66,10 @@ If your plugin does not need CSS, delete this file.
     opacity: 0.8;
     background-color: var(--interactive-hover);
     border: 2px solid var(--interactive-accent);
+}
+
+.ordenar-archivo hr {
+    margin: 0;
 }
 
 .ordenar-archivo-contenido {

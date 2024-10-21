@@ -99,7 +99,7 @@ class ReordenarModal extends Modal {
 		const {contentEl} = this;
 		this.component.load();
 
-		this.setTitle(`Ahora vamos a reordenar ${this.metrica}`)
+		this.setTitle(`Seleccionar cual es mejor según "${this.metrica}"`);
 		this.modalEl.addClass("ordenar-ventana");
 
 		let [ indiceUno, indiceDos ] = this.conseguirArchivos();
