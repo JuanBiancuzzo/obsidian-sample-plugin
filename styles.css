@@ -81,3 +81,12 @@ If your plugin does not need CSS, delete this file.
     display: flex;
     justify-content: center;
 }
+
+.ordenar-archivo-contenido h1,
+.ordenar-archivo-contenido h2,
+.ordenar-archivo-contenido h3,
+.ordenar-archivo-contenido h4,
+.ordenar-archivo-contenido h5,
+.ordenar-archivo-contenido h6 {
+    padding-top: 0.5em;
+}
