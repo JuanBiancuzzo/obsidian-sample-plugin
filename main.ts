@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS: OrdenarArchivosPluginSettings = {
 export default class OrdenarArchivosPlugin extends Plugin {
 	settings: OrdenarArchivosPluginSettings;
 	dv: undefined | Plugin;
+	modal: undefined | ReordenarModal;
 
 	async onload() {
 		await this.loadSettings();
@@ -24,17 +25,31 @@ export default class OrdenarArchivosPlugin extends Plugin {
 			this.agregarMetrica(metrica);
 		}
 
+
+
+		this.registerDomEvent(document, 'keydown', async (event: KeyboardEvent) => {
+			if (event.code == "KeyL" && this.modal) {
+				await this.modal.establecerComparacion('der');
+			} else if (event.code == "KeyJ" && this.modal) {
+				await this.modal.establecerComparacion('izq');
+			}
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
-		// this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-		// 	console.log('click', evt);
+		// this.registerDomEvent(document, 'keydown', async (event: KeyboardEvent) => {
+		// 	if (event.code == "Escape" && this.modal) {
+		// 		await this.modal.onClose();
+		// 		this.modal.close();
+		// 	}
 		// });
 
+
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+		// this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
 	onunload() {
@@ -54,7 +69,12 @@ export default class OrdenarArchivosPlugin extends Plugin {
 			id: `open-reordenar-${this.tenerMetricaId(metrica)}`,
 			name: `Reordenar ${metrica}`,
 			callback: async () => {
-				new ReordenarModal(this.app, this.dv, metrica).open();
+				if (this.modal) {
+					await this.modal.onClose();
+					this.modal.close();
+				}
+				this.modal = new ReordenarModal(this.app, this.dv, metrica);
+				await this.modal.open();
 			}
 		});
 	}
@@ -80,6 +100,9 @@ class ReordenarModal extends Modal {
 	archivos: {}[];
 	ultima: number[];
 
+	indiceIzq: number;
+	indiceDer: number;
+
 	constructor(app: App, dv: Plugin, metrica: string) {
 		super(app);
 		this.metrica = metrica;
@@ -102,16 +125,14 @@ class ReordenarModal extends Modal {
 		this.setTitle(`Seleccionar cual es mejor según "${this.metrica}"`);
 		this.modalEl.addClass("ordenar-ventana");
 
-		let [ indiceUno, indiceDos ] = this.conseguirArchivos();
-		let [ archivoUno, archivoDos ] = [ indiceUno, indiceDos ].map(indice => this.archivos[indice]);
-		let tArchivoUno = this.app.vault.getAbstractFileByPath(archivoUno.path);
-		let tArchivoDos = this.app.vault.getAbstractFileByPath(archivoDos.path);
+		[ this.indiceIzq, this.indiceDer ] = this.conseguirArchivos();
+		let [ archivoUno, archivoDos ] = [ this.indiceDer, this.indiceIzq ].map(indice => this.archivos[indice]);
+		let [ tArchivoUno, tArchivoDos ] = [ archivoUno, archivoDos ].map(archivo => this.app.vault.getAbstractFileByPath(archivo.path));
 
 		let [ contenidoUno, contenidoDos ] = (await Promise.all([
 			this.app.vault.read(tArchivoUno),
 			this.app.vault.read(tArchivoDos)
 		])).map(contenido => this.sacarFrontmatter(contenido));
-		await this.waitForDataview();
 
 		let separacion = contentEl.createDiv();
 		separacion.addClass("ordenar-separacion");
@@ -119,17 +140,7 @@ class ReordenarModal extends Modal {
 
 		let divIzquierda = new ButtonComponent(separacion)
 			.setClass("ordenar-archivo")
-			.onClick(async () => {
-				let metricaMejor = archivoUno.metrica;
-            	let metricaPeor = archivoDos.metrica;
-
-				if ( parseInt(metricaMejor, 10) > parseInt(metricaPeor, 10) ) {
-					this.archivos[indiceUno]["metrica"] = metricaPeor;
-					this.archivos[indiceDos]["metrica"] = metricaMejor;
-				}
-				await this.onClose(); 
-				this.onOpen();
-			})
+			.onClick(async () => await this.establecerComparacion('izq'))
 			.buttonEl;
 
 		let tareaIzquierda = MarkdownRenderer
@@ -142,17 +153,7 @@ class ReordenarModal extends Modal {
 
 		let divDerecha = new ButtonComponent(separacion)
 			.setClass("ordenar-archivo")
-			.onClick(async () => {
-				let metricaMejor = archivoDos.metrica;
-            	let metricaPeor = archivoUno.metrica;
-
-				if ( parseInt(metricaMejor, 10) > parseInt(metricaPeor, 10) ) {
-					this.archivos[indiceDos]["metrica"] = metricaPeor;
-					this.archivos[indiceUno]["metrica"] = metricaMejor;
-				}
-				await this.onClose(); 
-				this.onOpen();
-			})
+			.onClick(async () => await this.establecerComparacion('der'))
 			.buttonEl;
 
 		let tareaDerecha = MarkdownRenderer
@@ -164,17 +165,6 @@ class ReordenarModal extends Modal {
 			);
 
 		await Promise.all([ tareaIzquierda, tareaDerecha ]);
-	}
-	async waitForDataview() {
-		return new Promise((resolve) => {
-			if (this.app.plugins.plugins.dataview) {
-				resolve(this.app.plugins.plugins.dataview);
-			} else {
-				this.app.workspace.on("dataview:api-ready", () => {
-					resolve(this.app.plugins.plugins.dataview);
-				});
-			}
-		});
 	}
 
 	async onClose(): Promise<void> {
@@ -195,6 +185,22 @@ class ReordenarModal extends Modal {
 			});
 
 		await Promise.all(tareas);
+	}
+
+	async establecerComparacion(dir) {
+		let indiceMejor = (dir == 'der') ? this.indiceDer : this.indiceIzq;
+		let indicePeor = (dir == 'der') ? this.indiceIzq : this.indiceDer;
+
+		let metricaMejor = this.archivos[indiceMejor].metrica;
+		let metricaPeor = this.archivos[indicePeor].metrica;
+
+		if (parseInt(metricaMejor, 10) > parseInt(metricaPeor, 10)) {
+			this.archivos[indiceMejor]["metrica"] = metricaPeor;
+			this.archivos[indicePeor]["metrica"] = metricaMejor;
+		}
+
+		await this.onClose();
+		this.onOpen();
 	}
 
 	sacarFrontmatter(contenido: string): string {
