@@ -1,15 +1,27 @@
 import { App, Modal, Notice, Plugin, PluginSettingTab, Setting, DropdownComponent, ButtonComponent, MarkdownRenderer, Component } from 'obsidian';
 
+class Metrica {
+	nombre: string;
+	esAscendiente: boolean;
+
+	constructor(nombre: string, esAscendiente: boolean) {
+		this.nombre = nombre;
+		this.esAscendiente = esAscendiente;
+	} 
+}
+
 interface OrdenarArchivosPluginSettings {
 	metricas: string[];
+	esAscendientes: boolean[];
 }
 
 const DEFAULT_SETTINGS: OrdenarArchivosPluginSettings = {
-	metricas: []
+	metricas: [],
+	esAscendientes: [],
 }
 
 export default class OrdenarArchivosPlugin extends Plugin {
-	settings: OrdenarArchivosPluginSettings;
+	settings: Metrica[] = [];
 	dv: undefined | Plugin;
 	modal: undefined | ReordenarModal;
 
@@ -21,11 +33,9 @@ export default class OrdenarArchivosPlugin extends Plugin {
 		})
 
 		// This adds a simple command that can be triggered anywhere
-		for (let metrica of this.settings.metricas) {
-			this.agregarMetrica(metrica);
+		for (let metrica of this.settings) {
+			this.agregarMetrica(metrica.nombre, metrica.esAscendiente);
 		}
-
-
 
 		this.registerDomEvent(document, 'keydown', async (event: KeyboardEvent) => {
 			if (event.code == "KeyL" && this.modal) {
@@ -37,19 +47,6 @@ export default class OrdenarArchivosPlugin extends Plugin {
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		// this.registerDomEvent(document, 'keydown', async (event: KeyboardEvent) => {
-		// 	if (event.code == "Escape" && this.modal) {
-		// 		await this.modal.onClose();
-		// 		this.modal.close();
-		// 	}
-		// });
-
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		// this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
 	}
 
 	onunload() {
@@ -57,14 +54,27 @@ export default class OrdenarArchivosPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		let resultado: OrdenarArchivosPluginSettings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+
+		for (let [indice, metrica] of resultado.metricas.entries()) {
+			let esAscendiente = (indice < resultado.esAscendientes.length)
+				? resultado.esAscendientes[indice]
+				: false;
+			if (this.settings.findIndex(objMetrica => objMetrica.nombre == metrica) < 0)
+				this.settings.push(new Metrica(metrica, esAscendiente));
+		}
 	}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
+		let settings: OrdenarArchivosPluginSettings = DEFAULT_SETTINGS;
+		for (let metrica of this.settings) {
+			settings.metricas.push(metrica.nombre);
+			settings.esAscendientes.push(metrica.esAscendiente);
+		}
+		await this.saveData(settings);
 	}
 
-	agregarMetrica(metrica: string): void {
+	agregarMetrica(metrica: string, esAscendiente: boolean): void {
 		this.addCommand({
 			id: `open-reordenar-${this.tenerMetricaId(metrica)}`,
 			name: `Reordenar ${metrica}`,
@@ -73,7 +83,7 @@ export default class OrdenarArchivosPlugin extends Plugin {
 					await this.modal.onClose();
 					this.modal.close();
 				}
-				this.modal = new ReordenarModal(this.app, this.dv, metrica);
+				this.modal = new ReordenarModal(this.app, this.dv, metrica, esAscendiente);
 				await this.modal.open();
 			}
 		});
@@ -96,16 +106,20 @@ export default class OrdenarArchivosPlugin extends Plugin {
 
 class ReordenarModal extends Modal {
 	metrica: string;
+	esAscendente: boolean;
+
 	component: Component;
-	archivos: {}[];
+	archivos: Record<string, string>[];
 	ultima: number[];
 
 	indiceIzq: number;
 	indiceDer: number;
 
-	constructor(app: App, dv: Plugin, metrica: string) {
+	constructor(app: App, dv: Plugin, metrica: string, esAscendente: boolean) {
 		super(app);
 		this.metrica = metrica;
+		this.esAscendente = esAscendente;
+
 		this.component = new Component();
 		this.archivos = dv.pages()
 			.filter(archivo => archivo[this.metrica])
@@ -194,13 +208,19 @@ class ReordenarModal extends Modal {
 		let metricaMejor = this.archivos[indiceMejor].metrica;
 		let metricaPeor = this.archivos[indicePeor].metrica;
 
-		if (parseInt(metricaMejor, 10) > parseInt(metricaPeor, 10)) {
+		if (this.debeCambiar(parseInt(metricaMejor, 10), parseInt(metricaPeor, 10))) {
 			this.archivos[indiceMejor]["metrica"] = metricaPeor;
 			this.archivos[indicePeor]["metrica"] = metricaMejor;
+
 		}
 
 		await this.onClose();
 		this.onOpen();
+	}
+
+	debeCambiar(metricaMejor, metricaPeor) {
+		if (this.esAscendente) return metricaMejor > metricaPeor;
+		return metricaMejor < metricaPeor;
 	}
 
 	sacarFrontmatter(contenido: string): string {
@@ -230,9 +250,14 @@ class ReordenarModal extends Modal {
 		this.ultima[0] = indicePrincipal;
 		this.ultima[1] = indiceSecundario;
 
-		return (this.archivos[indicePrincipal].metrica < this.archivos[indiceSecundario].metrica) 
-			? [ indicePrincipal, indiceSecundario ]
-			: [ indiceSecundario, indicePrincipal ];
+		let condicion = this.esAscendente 
+			? this.archivos[indicePrincipal].metrica < this.archivos[indiceSecundario].metrica
+			: this.archivos[indicePrincipal].metrica > this.archivos[indiceSecundario].metrica;
+
+		return condicion
+			? [indicePrincipal, indiceSecundario]
+			: [indiceSecundario, indicePrincipal];
+
     }
 }
 
@@ -261,27 +286,39 @@ class SampleSettingTab extends PluginSettingTab {
 			return;
 		}
 
-		if (this.plugin.settings.metricas.length > 0) {
-			for (let [indice, metrica] of this.plugin.settings.metricas.entries()) {
+		if (this.plugin.settings.length > 0) {
+			for (let [indice, metrica] of this.plugin.settings.entries()) {
 				new Setting(containerEl)
 					.setName(`Setting #${indice + 1}`)
 					.setDesc('It\'s a secret')
+					.addToggle(toggle => toggle
+						.setValue(metrica.esAscendiente)
+						.setTooltip("Si se activa es ascendente")
+						.onChange(async (value) => { 
+							let metricaVieja = this.plugin.settings[indice];
+							this.plugin.eliminarMetrica(metricaVieja.nombre);
+
+							this.plugin.settings[indice] = new Metrica(metricaVieja.nombre, value);
+							this.plugin.agregarMetrica(metricaVieja.nombre, value);
+							await this.plugin.saveSettings();
+						})
+					)
 					.addDropdown(dropdown => {
 						for (let otrasMetrica of posiblesMetricas) {
-							if (otrasMetrica != metrica && this.plugin.settings.metricas.indexOf(otrasMetrica) >= 0)
+							if (otrasMetrica != metrica.nombre && this.plugin.settings.findIndex(m => m.nombre == otrasMetrica) >= 0)
 								continue
 
 							dropdown = dropdown.addOption(otrasMetrica, otrasMetrica);
 						}
 
-						dropdown = dropdown.onChange(async (value) => {
-							if (metrica) this.plugin.eliminarMetrica(metrica);
-							this.plugin.settings.metricas[indice] = value;
-							this.plugin.agregarMetrica(value);
-							await this.plugin.saveSettings();
-						}).setValue(metrica);
+						return dropdown.onChange(async (value) => {
+							let metricaVieja = this.plugin.settings[indice];
+							this.plugin.eliminarMetrica(metricaVieja.nombre);
 
-						return dropdown;
+							this.plugin.settings[indice] = new Metrica(value, metricaVieja.esAscendiente);
+							this.plugin.agregarMetrica(value, metricaVieja.esAscendiente);
+							await this.plugin.saveSettings();
+						}).setValue(metrica.nombre);
 					});
 			}
 		}
@@ -289,16 +326,16 @@ class SampleSettingTab extends PluginSettingTab {
 		let botones = containerEl.createDiv();
 		botones.addClass("ordenar-botones")
 
-		if (this.plugin.settings.metricas.length > 0) {
+		if (this.plugin.settings.length > 0) {
 			new ButtonComponent(botones)
 				.setClass("ordenar-boton")
 				.setButtonText("Eliminar métrica")
 				.setTooltip("Apretar")
 				.onClick(async () => {
 					new Notice("Eliminando")
-					let metrica = this.plugin.settings.metricas.pop();
-					if (metrica && metrica.trim() != "") {
-						this.plugin.eliminarMetrica(metrica);
+					let metrica = this.plugin.settings.pop();
+					if (metrica && metrica.nombre.trim() != "") {
+						this.plugin.eliminarMetrica(metrica.nombre);
 					}
 
 					await this.plugin.saveSettings();
@@ -306,7 +343,7 @@ class SampleSettingTab extends PluginSettingTab {
 				});
 		}
 
-		if (posiblesMetricas.length > this.plugin.settings.metricas.length) {
+		if (posiblesMetricas.length > this.plugin.settings.length) {
 			new ButtonComponent(botones)
 				.setClass("ordenar-boton")
 				.setButtonText("Agregar métrica")
@@ -314,9 +351,9 @@ class SampleSettingTab extends PluginSettingTab {
 				.onClick(async () => {
 					new Notice("Agregando")
 					let metricaNoUsada = posiblesMetricas
-						.find(metrica => this.plugin.settings.metricas.indexOf(metrica) < 0);
-					this.plugin.settings.metricas.push(metricaNoUsada ? metricaNoUsada : "");
-					this.plugin.agregarMetrica(metricaNoUsada ? metricaNoUsada : "");
+						.find(metrica => this.plugin.settings.findIndex(m => m.nombre == metrica));
+					this.plugin.settings.push(new Metrica(metricaNoUsada ? metricaNoUsada : "", false));
+					this.plugin.agregarMetrica(metricaNoUsada ? metricaNoUsada : "", false);
 					await this.plugin.saveSettings();
 					this.display();
 				});
